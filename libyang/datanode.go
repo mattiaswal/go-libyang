@@ -36,11 +36,11 @@ func (d *DataNode) Next() DataNode {
 	if d.Ptr.next == nil {
 		return DataNode{Ptr: nil}
 	}
-	return NewNode(unsafe.Pointer(d.Ptr.next))
+	return DataNode{Ptr: d.Ptr.next}
 }
 
 func (d *DataNode) Prev() DataNode {
-	return NewNode(unsafe.Pointer(d.Ptr.prev))
+	return DataNode{Ptr: d.Ptr.prev}
 }
 
 func (d *DataNode) Validate(ctx *Context) C.LY_ERR {
@@ -61,16 +61,9 @@ func (d *DataNode) Print(format DataFormat) (string, error) {
 }
 
 func (d *DataNode) Child() DataNode {
-	c := C.lyd_child(d.Ptr)
-	return NewNode(unsafe.Pointer(c))
+	child := C.lyd_child(d.Ptr)
 
-}
-func NewNode(n unsafe.Pointer) DataNode {
-	var dnode DataNode
-	node := (*C.struct_lyd_node)(n)
-	dnode.Ptr = node
-
-	return dnode
+	return DataNode{Ptr: child}
 }
 
 func (d *DataNode) Name() string {
@@ -78,15 +71,6 @@ func (d *DataNode) Name() string {
 		return ""
 	}
 	return C.GoString(d.Ptr.schema.name)
-}
-
-func (d *DataNode) ChildValue() string {
-	if d == nil || d.Ptr == nil {
-		return ""
-	}
-	node := d.Child()
-
-	return C.GoString(C.lyd_get_value(node.Ptr))
 }
 
 func (d *DataNode) Value() string {
@@ -99,7 +83,24 @@ func (d *DataNode) FirstSibling() DataNode {
 	return DataNode{Ptr: C.lyd_first_sibling(d.Ptr)}
 }
 
+// Helper functions
+
+// Required for creating DataNode from go-sysrepo
+func NewNode(n unsafe.Pointer) DataNode {
+	var dnode DataNode
+	node := (*C.struct_lyd_node)(n)
+	dnode.Ptr = node
+
+	return dnode
+}
+
+func (d *DataNode) ChildValue(name string) string {
+	child := d.ChildByName(name)
+	return child.Value()
+}
+
 func (d *DataNode) ChildByName(name string) DataNode {
+
 	for it := d.Child(); it.Ptr != nil; it = it.Next() {
 		if it.Ptr.schema != nil {
 			if C.GoString(it.Ptr.schema.name) == name {
@@ -107,6 +108,5 @@ func (d *DataNode) ChildByName(name string) DataNode {
 			}
 		}
 	}
-
 	return DataNode{Ptr: nil}
 }
